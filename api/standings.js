@@ -19,7 +19,7 @@ const teamsCache = createCache(300_000);  // 5min — team list is static
 async function getGames() {
   const cached = gamesCache.get('games');
   if (cached) return cached;
-  const data = await fetchJSON(`${API}/get/games`);
+  const data = await fetchWithRetry(`${API}/get/games`);
   gamesCache.set('games', data);
   return data;
 }
@@ -27,7 +27,7 @@ async function getGames() {
 async function getTeams() {
   const cached = teamsCache.get('teams');
   if (cached) return cached;
-  const data = await fetchJSON(`${API}/get/teams`);
+  const data = await fetchWithRetry(`${API}/get/teams`);
   teamsCache.set('teams', data);
   return data;
 }
@@ -66,6 +66,19 @@ async function fetchJSON(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${res.status} from ${url}`);
   return res.json();
+}
+
+async function fetchWithRetry(url, retries = 2, delayMs = 800) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fetchJSON(url);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  throw lastErr;
 }
 
 export default async function handler(req, res) {
