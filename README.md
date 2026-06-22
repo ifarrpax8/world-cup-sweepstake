@@ -1,34 +1,21 @@
 # Office World Cup 2026 Sweepstake Tracker
 
-A live-updating sweepstake table for your office, showing real-time standings,
+A live-updating sweepstake table for the Pax8 Brisbane office, showing real-time standings,
 fixtures, and scores from the FIFA World Cup 2026. Times are shown in AEST.
+
+Live at: **https://world-cup-sweepstake-gamma-nine.vercel.app**
 
 ---
 
-## Quick Start
-
-### 1. Add your sweepstake participants
-
-Edit `src/config/sweepstake.ts` — it's a simple list at the top of the file:
-
-```ts
-export const SWEEPSTAKE = [
-  { person: 'Chris', country: 'Argentina' },
-  { person: 'Ray',   country: 'Brazil' },
-  // Add one entry per participant, up to 48 teams
-];
-```
-
-Country names must match the API.
-
-### 2. Install and run
+## Quick Start (local dev)
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open <http://localhost:5173> in your browser.
+Open <http://localhost:5173> in your browser. The dev server proxies `/api/*` to a local
+Express server (`server/index.mjs`) — no env vars or API keys needed.
 
 ---
 
@@ -38,47 +25,65 @@ Open <http://localhost:5173> in your browser.
 |------|-----------|
 | Live scores & match status | Every 30 seconds |
 | Group standings | Every 2 minutes |
-| Top scorers | Every 5 minutes |
 
-**Live indicator** — a pulsing red dot appears next to any country currently
-playing. The score updates automatically.
+Data is fetched from [worldcup26.ir](https://worldcup26.ir) — a free community API.
+The serverless functions cache upstream responses (30s for games, 5 min for teams) and
+retry up to 3 times on network failure to smooth over intermittent API blips.
 
-**Row flash** — rows glow yellow when their data changes.
+**Live indicator** — a pulsing red dot appears when a participant's country is currently playing.
 
-**Browser notifications** — click "Allow" when prompted to receive a desktop
-notification when a sweepstake participant's country scores or a match finishes.
+**Row flash** — rows glow yellow when their score or status changes.
+
+**Staleness warning** — an amber banner appears if live data hasn't refreshed in over 90 seconds.
+
+**Browser notifications** — click the `🔔 Notify me` button in the header to opt in to
+desktop notifications when a sweepstake participant's country scores or a match finishes.
+Click `🔔 On` / `🔕 Off` to toggle notifications on or off at any time (preference is saved).
 
 **Confetti** — fires automatically when any participant's country wins the tournament.
 
 ---
 
-## Swapping the API provider
+## Editing Participants
 
-To use a different football data source:
+The participant list lives in `src/config/sweepstake.ts` — maintained by Chris (Talent Acquisition):
 
-1. Open `server/index.mjs`.
-2. Change `API_BASE` to the new provider's base URL.
-3. Update the three `proxyGet(...)` calls to match the new endpoint paths.
-4. Update the `API_HEADERS` object with the new auth header format.
+```ts
+export const SWEEPSTAKE = [
+  { person: 'Chris', country: 'Argentina' },
+  { person: 'Ray',   country: 'Brazil' },
+  // one entry per participant, up to 48 teams
+];
+```
+
+Edit the file and save — Vite hot-reloads instantly in dev. For the live site, commit and push;
+Vercel deploys automatically within ~30 seconds.
+
+If a team's stats show blank, it's likely a country name mismatch between the API and the config.
+Add the API's spelling to `ALIAS_GROUPS` in `src/utils/helpers.ts`.
 
 ---
 
-## Deploying to Vercel or Netlify
+## Deployment (Vercel)
 
-The `api/` directory already contains the Vercel serverless functions. To deploy:
+The repo auto-deploys via Vercel on every push to `main`.
 
-**Vercel (recommended):**
+- **Production:** https://world-cup-sweepstake-gamma-nine.vercel.app
+- **Preview:** each branch gets its own preview URL
+
+The `api/` directory contains the serverless functions (`api/matches.js`, `api/standings.js`).
+Vercel routes `/api/*` to them automatically — no configuration needed.
+
+To deploy a fresh instance:
 1. Push to GitHub.
-2. Import the repo in Vercel — it auto-detects Vite. Build command: `npm run build`, output directory: `dist`.
-3. Done — you get a `*.vercel.app` URL with `/api/*` routes handled automatically.
-
-**Netlify:**
-Use Netlify Functions under `netlify/functions/` and add a `netlify.toml` redirect
-from `/api/*` to `/.netlify/functions/:splat`.
+2. Import the repo in [vercel.com/new](https://vercel.com/new) — it auto-detects Vite.
+   Build command: `npm run build`, output directory: `dist`.
+3. Done — no env vars or API keys required.
 
 ---
 
-## Editing participants mid-tournament
+## Country Name Matching
 
-Just edit `src/config/sweepstake.ts` and save — Vite hot-reloads instantly.
-No restart required.
+Country names from the API are normalised in `src/utils/helpers.ts` via `ALIAS_GROUPS`.
+If a new team alias appears during the tournament (e.g. "United States" vs "USA"), add it
+to the relevant group array — no changes needed anywhere else.
