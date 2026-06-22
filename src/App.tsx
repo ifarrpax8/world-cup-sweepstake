@@ -216,7 +216,7 @@ export default function App() {
         )}
 
         {/* Loading */}
-        {isLoading ? (
+        {isLoading && !error ? (
           <div className="flex flex-col items-center justify-center py-32 gap-4">
             <div className="relative">
               <div className="h-14 w-14 rounded-full border-4 border-pax8-light dark:border-slate-700 border-t-pax8-blue animate-spin" />
