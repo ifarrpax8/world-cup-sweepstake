@@ -1,14 +1,12 @@
-import { ParticipantRow, Scorer } from '../types';
-import { getFlag, formatAEST, getMatchSummary, matchesCountry } from '../utils/helpers';
+import { ParticipantRow } from '../types';
+import { getFlag, formatAEST, getMatchSummary } from '../utils/helpers';
 
 interface Props {
   row: ParticipantRow;
-  scorers: Scorer[];
   onClose: () => void;
 }
 
-export function DetailPanel({ row, scorers, onClose }: Props) {
-  const countryScorers = scorers.filter(s => matchesCountry(row.country, s.team.name));
+export function DetailPanel({ row, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -87,22 +85,6 @@ export function DetailPanel({ row, scorers, onClose }: Props) {
             )}
           </section>
 
-          {/* Top scorers for this nation */}
-          {countryScorers.length > 0 && (
-            <section>
-              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                Top Scorers
-              </h3>
-              <ul className="space-y-1.5">
-                {countryScorers.slice(0, 5).map(s => (
-                  <li key={s.player.id} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-700 dark:text-gray-200">{s.player.name}</span>
-                    <span className="font-semibold tabular-nums">{s.goals} ⚽</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
         </div>
       </div>
     </div>
