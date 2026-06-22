@@ -23,7 +23,9 @@ export interface FootballData {
   isLoading: boolean;
   error: string | null;
   notifPermission: NotificationPermission;
+  notifEnabled: boolean;
   requestNotifications: () => void;
+  toggleNotifications: () => void;
 }
 
 export function useFootballData(): FootballData {
@@ -37,10 +39,14 @@ export function useFootballData(): FootballData {
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(() =>
     'Notification' in window ? Notification.permission : 'denied'
   );
+  const [notifEnabled, setNotifEnabled] = useState<boolean>(() =>
+    localStorage.getItem('notifEnabled') !== 'false'
+  );
 
   // Track previous match scores to detect changes for browser notifications.
-  const prevScoresRef = useRef<Map<number, { home: number | null; away: number | null }>>(new Map());
-  const notifPermRef  = useRef<NotificationPermission>(notifPermission);
+  const prevScoresRef    = useRef<Map<number, { home: number | null; away: number | null }>>(new Map());
+  const notifPermRef     = useRef<NotificationPermission>(notifPermission);
+  const notifEnabledRef  = useRef<boolean>(notifEnabled);
 
   // Holds in-flight AbortControllers so each new poll can cancel the previous one.
   const abortRefs = useRef<{ matches?: AbortController; standings?: AbortController }>({});
@@ -53,8 +59,15 @@ export function useFootballData(): FootballData {
     });
   }
 
+  function toggleNotifications() {
+    const next = !notifEnabledRef.current;
+    notifEnabledRef.current = next;
+    setNotifEnabled(next);
+    localStorage.setItem('notifEnabled', String(next));
+  }
+
   function sendNotif(title: string, body: string) {
-    if (notifPermRef.current === 'granted') {
+    if (notifPermRef.current === 'granted' && notifEnabledRef.current) {
       new Notification(title, { body, icon: '/favicon.svg' });
     }
   }
@@ -161,5 +174,5 @@ export function useFootballData(): FootballData {
     };
   }, [fetchMatches, fetchStandings]);
 
-  return { standingGroups, allEntries, matches, lastUpdated, lastFetchedAt, isLoading, error, notifPermission, requestNotifications };
+  return { standingGroups, allEntries, matches, lastUpdated, lastFetchedAt, isLoading, error, notifPermission, notifEnabled, requestNotifications, toggleNotifications };
 }

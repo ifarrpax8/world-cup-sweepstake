@@ -22,7 +22,7 @@ export default function App() {
   const [flashedCountries, setFlashedCountries] = useState<Set<string>>(new Set());
   const [confettiActive, setConfettiActive]     = useState(false);
 
-  const { standingGroups, allEntries, matches, lastUpdated, lastFetchedAt, isLoading, error, notifPermission, requestNotifications } =
+  const { standingGroups, allEntries, matches, lastUpdated, lastFetchedAt, isLoading, error, notifPermission, notifEnabled, requestNotifications, toggleNotifications } =
     useFootballData();
 
   useEffect(() => {
@@ -156,9 +156,13 @@ export default function App() {
                 </button>
               )}
               {notifPermission === 'granted' && (
-                <span className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-semibold text-white/50">
-                  🔔 On
-                </span>
+                <button
+                  onClick={toggleNotifications}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 transition-all text-sm font-semibold backdrop-blur"
+                  title={notifEnabled ? 'Turn off goal notifications' : 'Turn on goal notifications'}
+                >
+                  {notifEnabled ? '🔔 On' : '🔕 Off'}
+                </button>
               )}
               <button
                 onClick={() => setDarkMode(d => !d)}
