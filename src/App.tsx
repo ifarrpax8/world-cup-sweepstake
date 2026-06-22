@@ -22,7 +22,7 @@ export default function App() {
   const [flashedCountries, setFlashedCountries] = useState<Set<string>>(new Set());
   const [confettiActive, setConfettiActive]     = useState(false);
 
-  const { standingGroups, allEntries, matches, scorers, lastUpdated, isLoading, error } =
+  const { standingGroups, allEntries, matches, lastUpdated, lastFetchedAt, isLoading, error } =
     useFootballData();
 
   useEffect(() => {
@@ -105,6 +105,7 @@ export default function App() {
 
   const leaderIdx = useMemo(() => getLeaderIndex(sortedRows), [sortedRows]);
   const liveCount = allRows.filter(r => r.liveMatch).length;
+  const isStale = lastFetchedAt !== null && Date.now() - lastFetchedAt > 90_000;
 
   function handleSort(key: SortKey) {
     setSortConfig(prev =>
@@ -200,6 +201,13 @@ export default function App() {
           )}
         </div>
 
+        {/* Staleness warning */}
+        {isStale && !error && (
+          <div className="mb-5 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-sm animate-fade-in">
+            ⚠️ Live data hasn't refreshed in over 90 seconds — the upstream API may be slow.
+          </div>
+        )}
+
         {/* Error banner */}
         {error && (
           <div className="mb-5 p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm animate-fade-in">
@@ -234,7 +242,7 @@ export default function App() {
       </main>
 
       {selectedRow && (
-        <DetailPanel row={selectedRow} scorers={scorers} onClose={() => setSelectedIdx(null)} />
+        <DetailPanel row={selectedRow} onClose={() => setSelectedIdx(null)} />
       )}
     </div>
   );

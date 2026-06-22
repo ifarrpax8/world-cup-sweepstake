@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { StandingGroup, Match, Scorer, TableEntry } from '../types';
+import { StandingGroup, Match, TableEntry } from '../types';
 import { SWEEPSTAKE } from '../config/sweepstake';
 
 // How often to re-fetch each endpoint (milliseconds).
 // football-data.org free tier: 10 requests/minute.
-// 3 endpoints × (1/30s + 1/120s + 1/300s) ≈ 5 req/min — safely within limits.
+// 2 endpoints × (1/30s + 1/120s) ≈ 2.5 req/min — safely within limits.
 const MATCHES_INTERVAL  = 30_000;   // 30 s  — scores change here
 const STANDINGS_INTERVAL = 120_000;  // 2 min — group tables
-const SCORERS_INTERVAL   = 300_000;  // 5 min — top scorers
 
 async function fetcher<T>(url: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(url, { signal });
@@ -19,8 +18,8 @@ export interface FootballData {
   standingGroups: StandingGroup[];
   allEntries: TableEntry[];    // flat list of all group table rows
   matches: Match[];
-  scorers: Scorer[];
   lastUpdated: string;
+  lastFetchedAt: number | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -29,8 +28,8 @@ export function useFootballData(): FootballData {
   const [standingGroups, setStandingGroups] = useState<StandingGroup[]>([]);
   const [allEntries, setAllEntries]         = useState<TableEntry[]>([]);
   const [matches, setMatches]               = useState<Match[]>([]);
-  const [scorers, setScorers]               = useState<Scorer[]>([]);
   const [lastUpdated, setLastUpdated]       = useState<string>('—');
+  const [lastFetchedAt, setLastFetchedAt]   = useState<number | null>(null);
   const [isLoading, setIsLoading]           = useState(true);
   const [error, setError]                   = useState<string | null>(null);
 
@@ -39,7 +38,7 @@ export function useFootballData(): FootballData {
   const notifPermRef  = useRef<NotificationPermission>('default');
 
   // Holds in-flight AbortControllers so each new poll can cancel the previous one.
-  const abortRefs = useRef<{ matches?: AbortController; standings?: AbortController; scorers?: AbortController }>({});
+  const abortRefs = useRef<{ matches?: AbortController; standings?: AbortController }>({});
 
   // Request browser notification permission once on mount.
   useEffect(() => {
@@ -112,6 +111,7 @@ export function useFootballData(): FootballData {
       checkNotifications(data.matches);
       setMatches(data.matches);
       setLastUpdated(new Date().toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour12: false }) + ' AEST');
+      setLastFetchedAt(Date.now());
       setError(null);
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
@@ -135,42 +135,25 @@ export function useFootballData(): FootballData {
     }
   }, []);
 
-  const fetchScorers = useCallback(async () => {
-    abortRefs.current.scorers?.abort();
-    const controller = new AbortController();
-    abortRefs.current.scorers = controller;
-    try {
-      const data = await fetcher<{ scorers: Scorer[] }>('/api/scorers', controller.signal);
-      setScorers(data.scorers);
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') return;
-      // Non-fatal — scorers panel will just be empty.
-      console.warn('Scorers fetch failed:', e);
-    }
-  }, []);
-
   // Initial load.
   useEffect(() => {
-    Promise.all([fetchStandings(), fetchMatches(), fetchScorers()]).finally(() =>
+    Promise.all([fetchStandings(), fetchMatches()]).finally(() =>
       setIsLoading(false)
     );
   }, []);
 
   // Set up polling intervals.
   useEffect(() => {
-    const matchTimer    = setInterval(fetchMatches,   MATCHES_INTERVAL);
-    const standTimer    = setInterval(fetchStandings, STANDINGS_INTERVAL);
-    const scorersTimer  = setInterval(fetchScorers,   SCORERS_INTERVAL);
+    const matchTimer = setInterval(fetchMatches,   MATCHES_INTERVAL);
+    const standTimer = setInterval(fetchStandings, STANDINGS_INTERVAL);
 
     return () => {
       clearInterval(matchTimer);
       clearInterval(standTimer);
-      clearInterval(scorersTimer);
       abortRefs.current.matches?.abort();
       abortRefs.current.standings?.abort();
-      abortRefs.current.scorers?.abort();
     };
-  }, [fetchMatches, fetchStandings, fetchScorers]);
+  }, [fetchMatches, fetchStandings]);
 
-  return { standingGroups, allEntries, matches, scorers, lastUpdated, isLoading, error };
+  return { standingGroups, allEntries, matches, lastUpdated, lastFetchedAt, isLoading, error };
 }

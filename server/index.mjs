@@ -191,6 +191,4 @@ app.get('/api/standings', async (_req, res) => {
   }
 });
 
-app.get('/api/scorers', (_req, res) => res.json({ scorers: [] }));
-
 app.listen(PORT, () => console.log(`✅ Proxy ready on http://localhost:${PORT}`));
