@@ -72,6 +72,26 @@ async function fetchWithRetry(url, retries = 2, delayMs = 800) {
   throw lastErr;
 }
 
+function parseScorers(raw) {
+  if (!raw || raw === 'null') return [];
+  const entries = [];
+  const re = /"([^"]+)"/g;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    const str = m[1];
+    const ownGoal = str.includes('(OG)');
+    const parts = str.split(' ');
+    let nameEnd = parts.length;
+    for (let i = parts.length - 1; i >= 0; i--) {
+      if (/^\d/.test(parts[i])) { nameEnd = i; break; }
+    }
+    const name = parts.slice(0, nameEnd).join(' ');
+    const minute = parts.slice(nameEnd).join(' ').replace(/\(OG\)/g, '').trim();
+    entries.push({ name: name || str, minute, ownGoal });
+  }
+  return entries;
+}
+
 function mapStatus(t, finished) {
   const fin = finished === 'TRUE' || finished === true || finished === 1;
   if (fin) return 'FINISHED';
@@ -113,6 +133,8 @@ function transformGame(g) {
       halfTime:{ home:null, away:null },
       regularTime:null, extraTime:null, penalties:null,
     },
+    homeScorers: parseScorers(g.home_scorers),
+    awayScorers: parseScorers(g.away_scorers),
     utcDate: parseDate(g.local_date),
     matchday: parseInt(g.matchday)||null,
   };

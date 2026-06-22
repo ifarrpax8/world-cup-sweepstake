@@ -1,3 +1,9 @@
+export interface Scorer {
+  name: string;
+  minute: string;
+  ownGoal: boolean;
+}
+
 // ── API response shapes from api.football-data.org ──────────────────────────
 
 export interface Team {
@@ -59,6 +65,8 @@ export interface Match {
     extraTime: Score | null;
     penalties: Score | null;
   };
+  homeScorers: Scorer[];
+  awayScorers: Scorer[];
   utcDate: string;
   matchday: number | null;
 }

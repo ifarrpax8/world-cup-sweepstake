@@ -1,5 +1,5 @@
-import { ParticipantRow } from '../types';
-import { getFlag, formatAEST, getMatchSummary } from '../utils/helpers';
+import { ParticipantRow, Scorer } from '../types';
+import { getFlag, formatAEST, getMatchSummary, matchesCountry } from '../utils/helpers';
 
 interface Props {
   row: ParticipantRow;
@@ -30,6 +30,41 @@ export function DetailPanel({ row, onClose }: Props) {
         </div>
 
         <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
+          {/* Live match */}
+          {row.liveMatch && (() => {
+            const m = row.liveMatch;
+            const isHome = matchesCountry(row.country, m.homeTeam.name);
+            const hs = m.score.fullTime.home ?? 0;
+            const as_ = m.score.fullTime.away ?? 0;
+            const myScorers  = isHome ? m.homeScorers : m.awayScorers;
+            const oppScorers = isHome ? m.awayScorers : m.homeScorers;
+            return (
+              <section>
+                <h3 className="text-sm font-semibold text-red-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-live-pulse inline-block" />
+                  Live Now
+                </h3>
+                <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl p-3 text-sm space-y-2">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>{m.homeTeam.name}</span>
+                    <span className="text-lg tabular-nums">{hs}–{as_}</span>
+                    <span>{m.awayTeam.name}</span>
+                  </div>
+                  {myScorers.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {myScorers.map((s, i) => <ScorerPill key={i} scorer={s} />)}
+                    </div>
+                  )}
+                  {oppScorers.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 opacity-50">
+                      {oppScorers.map((s, i) => <ScorerPill key={i} scorer={s} />)}
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
+
           {/* Stats row */}
           {row.tableEntry && (
             <div className="grid grid-cols-4 gap-2 text-center">
@@ -55,13 +90,24 @@ export function DetailPanel({ row, onClose }: Props) {
             {row.recentResults.length === 0 ? (
               <p className="text-sm text-gray-400">No results yet</p>
             ) : (
-              <ul className="space-y-1.5">
-                {row.recentResults.map(m => (
-                  <li key={m.id} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-300">{getMatchSummary(row.country, m)}</span>
-                    <span className="text-xs text-gray-400">{formatAEST(m.utcDate, 'dd MMM')}</span>
-                  </li>
-                ))}
+              <ul className="space-y-3">
+                {row.recentResults.map(m => {
+                  const isHome = matchesCountry(row.country, m.homeTeam.name);
+                  const scorers = isHome ? m.homeScorers : m.awayScorers;
+                  return (
+                    <li key={m.id}>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-300">{getMatchSummary(row.country, m)}</span>
+                        <span className="text-xs text-gray-400">{formatAEST(m.utcDate, 'dd MMM')}</span>
+                      </div>
+                      {scorers.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {scorers.map((s, i) => <ScorerPill key={i} scorer={s} />)}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>
@@ -88,6 +134,14 @@ export function DetailPanel({ row, onClose }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function ScorerPill({ scorer }: { scorer: Scorer }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full px-2 py-0.5">
+      {scorer.ownGoal ? '🔄' : '⚽'} {scorer.name} {scorer.minute}
+    </span>
   );
 }
 
