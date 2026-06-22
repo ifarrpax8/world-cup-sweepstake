@@ -7,6 +7,38 @@ const API = 'https://worldcup26.ir';
 
 app.use(cors());
 
+function createCache(ttlMs) {
+  const store = new Map();
+  return {
+    get(key) {
+      const entry = store.get(key);
+      if (!entry) return null;
+      if (Date.now() - entry.ts > ttlMs) { store.delete(key); return null; }
+      return entry.val;
+    },
+    set(key, val) { store.set(key, { val, ts: Date.now() }); },
+  };
+}
+
+const gamesCache = createCache(30_000);   // 30s — matches poll interval
+const teamsCache = createCache(300_000);  // 5min — team list is static
+
+async function getGames() {
+  const cached = gamesCache.get('games');
+  if (cached) return cached;
+  const data = await fetchJSON(`${API}/get/games`);
+  gamesCache.set('games', data);
+  return data;
+}
+
+async function getTeams() {
+  const cached = teamsCache.get('teams');
+  if (cached) return cached;
+  const data = await fetchJSON(`${API}/get/teams`);
+  teamsCache.set('teams', data);
+  return data;
+}
+
 const NAME_MAP = {
   'United States':                     'USA',
   "Côte d'Ivoire":                     'Ivory Coast',
@@ -91,7 +123,7 @@ function transformGame(g) {
 
 app.get('/api/matches', async (_req, res) => {
   try {
-    const data  = await fetchJSON(`${API}/get/games`);
+    const data  = await getGames();
     const games = data.games ?? (Array.isArray(data) ? data : []);
     res.json({ matches: games.map(transformGame) });
   } catch (err) {
@@ -102,10 +134,7 @@ app.get('/api/matches', async (_req, res) => {
 
 app.get('/api/standings', async (_req, res) => {
   try {
-    const [gd, td] = await Promise.all([
-      fetchJSON(`${API}/get/games`),
-      fetchJSON(`${API}/get/teams`),
-    ]);
+    const [gd, td] = await Promise.all([getGames(), getTeams()]);
     const games = gd.games ?? (Array.isArray(gd) ? gd : []);
     const teams = td.teams ?? (Array.isArray(td) ? td : []);
 
