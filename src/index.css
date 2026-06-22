@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { @apply scroll-smooth; }
+  body {
+    @apply bg-pax8-light text-pax8-navy font-sans transition-colors duration-200;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+  .dark body, .dark {
+    @apply bg-pax8-dark text-slate-100;
+  }
+}
+
+@layer utilities {
+  .animate-flash { animation: flash 1.2s ease-in-out; }
+
+  /* Pax8 gradient text */
+  .text-pax8-gradient {
+    background: linear-gradient(135deg, #2B5CE6, #00C9B1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Animated shimmer for the header banner */
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      #1B2B4B 0%,
+      #2B5CE6 30%,
+      #00C9B1 50%,
+      #2B5CE6 70%,
+      #1B2B4B 100%
+    );
+    background-size: 200% auto;
+    animation: shimmer 4s linear infinite;
+  }
+
+  /* Glowing leader row */
+  .leader-glow {
+    box-shadow: inset 0 0 0 2px #00C9B1, 0 0 12px rgba(0, 201, 177, 0.15);
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { @apply bg-transparent; }
+::-webkit-scrollbar-thumb { @apply bg-pax8-blue/30 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-pax8-blue/60; }
