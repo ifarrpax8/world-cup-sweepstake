@@ -2,6 +2,7 @@
   "name": "world-cup-sweepstake",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "concurrently \"node server/index.mjs\" \"vite\"",
     "build": "tsc && vite build",

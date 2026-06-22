@@ -68,7 +68,10 @@ async function fetchJSON(url) {
   return res.json();
 }
 
-export default async function handler(_req, res) {
+export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
   try {
     const [gd, td] = await Promise.all([getGames(), getTeams()]);
     const games = gd.games ?? (Array.isArray(gd) ? gd : []);

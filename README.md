@@ -65,15 +65,16 @@ To use a different football data source:
 
 ## Deploying to Vercel or Netlify
 
-The Express proxy server needs to run somewhere server-side to avoid CORS issues when fetching from the upstream API.
+The `api/` directory already contains the Vercel serverless functions. To deploy:
 
 **Vercel (recommended):**
-1. Move the contents of `server/index.mjs` into a Vercel Serverless Function
-   under `api/` (e.g. `api/standings.js`, `api/matches.js`, `api/scorers.js`).
-2. Push to GitHub and connect the repo in Vercel — it handles the rest.
+1. Push to GitHub.
+2. Import the repo in Vercel — it auto-detects Vite. Build command: `npm run build`, output directory: `dist`.
+3. Done — you get a `*.vercel.app` URL with `/api/*` routes handled automatically.
 
 **Netlify:**
-Similar approach using Netlify Functions under `netlify/functions/`.
+Use Netlify Functions under `netlify/functions/` and add a `netlify.toml` redirect
+from `/api/*` to `/.netlify/functions/:splat`.
 
 ---
 
