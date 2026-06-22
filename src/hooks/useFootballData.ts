@@ -22,6 +22,8 @@ export interface FootballData {
   lastFetchedAt: number | null;
   isLoading: boolean;
   error: string | null;
+  notifPermission: NotificationPermission;
+  requestNotifications: () => void;
 }
 
 export function useFootballData(): FootballData {
@@ -32,20 +34,24 @@ export function useFootballData(): FootballData {
   const [lastFetchedAt, setLastFetchedAt]   = useState<number | null>(null);
   const [isLoading, setIsLoading]           = useState(true);
   const [error, setError]                   = useState<string | null>(null);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(() =>
+    'Notification' in window ? Notification.permission : 'denied'
+  );
 
   // Track previous match scores to detect changes for browser notifications.
   const prevScoresRef = useRef<Map<number, { home: number | null; away: number | null }>>(new Map());
-  const notifPermRef  = useRef<NotificationPermission>('default');
+  const notifPermRef  = useRef<NotificationPermission>(notifPermission);
 
   // Holds in-flight AbortControllers so each new poll can cancel the previous one.
   const abortRefs = useRef<{ matches?: AbortController; standings?: AbortController }>({});
 
-  // Request browser notification permission once on mount.
-  useEffect(() => {
-    if ('Notification' in window) {
-      Notification.requestPermission().then(p => { notifPermRef.current = p; });
-    }
-  }, []);
+  function requestNotifications() {
+    if (!('Notification' in window) || Notification.permission === 'denied') return;
+    Notification.requestPermission().then(p => {
+      notifPermRef.current = p;
+      setNotifPermission(p);
+    });
+  }
 
   function sendNotif(title: string, body: string) {
     if (notifPermRef.current === 'granted') {
@@ -155,5 +161,5 @@ export function useFootballData(): FootballData {
     };
   }, [fetchMatches, fetchStandings]);
 
-  return { standingGroups, allEntries, matches, lastUpdated, lastFetchedAt, isLoading, error };
+  return { standingGroups, allEntries, matches, lastUpdated, lastFetchedAt, isLoading, error, notifPermission, requestNotifications };
 }

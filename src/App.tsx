@@ -22,7 +22,7 @@ export default function App() {
   const [flashedCountries, setFlashedCountries] = useState<Set<string>>(new Set());
   const [confettiActive, setConfettiActive]     = useState(false);
 
-  const { standingGroups, allEntries, matches, lastUpdated, lastFetchedAt, isLoading, error } =
+  const { standingGroups, allEntries, matches, lastUpdated, lastFetchedAt, isLoading, error, notifPermission, requestNotifications } =
     useFootballData();
 
   useEffect(() => {
@@ -145,12 +145,28 @@ export default function App() {
                 )}
               </div>
             </div>
-            <button
-              onClick={() => setDarkMode(d => !d)}
-              className="self-start sm:self-auto px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 transition-all text-sm font-semibold backdrop-blur"
-            >
-              {darkMode ? '☀️ Light' : '🌙 Dark'}
-            </button>
+            <div className="self-start sm:self-auto flex items-center gap-2">
+              {notifPermission === 'default' && (
+                <button
+                  onClick={requestNotifications}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 transition-all text-sm font-semibold backdrop-blur"
+                  title="Get notified when your team scores"
+                >
+                  🔔 Notify me
+                </button>
+              )}
+              {notifPermission === 'granted' && (
+                <span className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-semibold text-white/50">
+                  🔔 On
+                </span>
+              )}
+              <button
+                onClick={() => setDarkMode(d => !d)}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 transition-all text-sm font-semibold backdrop-blur"
+              >
+                {darkMode ? '☀️ Light' : '🌙 Dark'}
+              </button>
+            </div>
           </div>
         </div>
       </header>
