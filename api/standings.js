@@ -1,11 +1,4 @@
-import express from 'express';
-import cors from 'cors';
-
-const app = express();
-const PORT = 3001;
 const API = 'https://worldcup26.ir';
-
-app.use(cors());
 
 function createCache(ttlMs) {
   const store = new Map();
@@ -75,64 +68,10 @@ async function fetchJSON(url) {
   return res.json();
 }
 
-function mapStatus(t, finished) {
-  const fin = finished === 'TRUE' || finished === true || finished === 1;
-  if (fin) return 'FINISHED';
-  const s = (t ?? '').toLowerCase();
-  if (s === '1h' || s === '2h' || s === 'live') return 'IN_PLAY';
-  if (s === 'ht' || s === 'halftime') return 'PAUSED';
-  return 'SCHEDULED';
-}
-
-function mapStage(type) {
-  const map = { group:'GROUP_STAGE', r32:'LAST_32', r16:'ROUND_OF_16', qf:'QUARTER_FINALS', sf:'SEMI_FINALS', third:'THIRD_PLACE', final:'FINAL' };
-  return map[(type??'').toLowerCase()] ?? 'GROUP_STAGE';
-}
-
-function parseDate(d) {
-  if (!d) return new Date().toISOString();
-  try {
-    const [dp, tp='00:00'] = d.split(' ');
-    const [mo,dy,yr] = dp.split('/');
-    const [h,m] = tp.split(':');
-    return new Date(Date.UTC(+yr,+mo-1,+dy,+h,+m)).toISOString();
-  } catch { return new Date().toISOString(); }
-}
-
-function transformGame(g) {
-  const hs=parseInt(g.home_score)||0, as_=parseInt(g.away_score)||0;
-  const fin = g.finished==='TRUE'||g.finished===true||g.finished===1;
-  return {
-    id: parseInt(g.id),
-    status: mapStatus(g.time_elapsed, g.finished),
-    stage:  mapStage(g.type),
-    group:  g.type==='group' ? `GROUP_${g.group}` : null,
-    homeTeam: { id:parseInt(g.home_team_id)||0, name:norm(g.home_team_name_en||g.home_team_label||'TBD'), shortName:norm(g.home_team_name_en||'TBD'), tla:'', crest:'' },
-    awayTeam: { id:parseInt(g.away_team_id)||0, name:norm(g.away_team_name_en||g.away_team_label||'TBD'), shortName:norm(g.away_team_name_en||'TBD'), tla:'', crest:'' },
-    score: {
-      winner: fin?(hs>as_?'HOME_TEAM':as_>hs?'AWAY_TEAM':'DRAW'):null,
-      duration:'REGULAR',
-      fullTime:{ home:fin?hs:null, away:fin?as_:null },
-      halfTime:{ home:null, away:null },
-      regularTime:null, extraTime:null, penalties:null,
-    },
-    utcDate: parseDate(g.local_date),
-    matchday: parseInt(g.matchday)||null,
-  };
-}
-
-app.get('/api/matches', async (_req, res) => {
-  try {
-    const data  = await getGames();
-    const games = data.games ?? (Array.isArray(data) ? data : []);
-    res.json({ matches: games.map(transformGame) });
-  } catch (err) {
-    console.error('[matches]', err.message);
-    res.status(500).json({ error: err.message });
+export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
-});
-
-app.get('/api/standings', async (_req, res) => {
   try {
     const [gd, td] = await Promise.all([getGames(), getTeams()]);
     const games = gd.games ?? (Array.isArray(gd) ? gd : []);
@@ -189,8 +128,4 @@ app.get('/api/standings', async (_req, res) => {
     console.error('[standings]', err.message);
     res.status(500).json({ error: err.message });
   }
-});
-
-app.get('/api/scorers', (_req, res) => res.json({ scorers: [] }));
-
-app.listen(PORT, () => console.log(`✅ Proxy ready on http://localhost:${PORT}`));
+}

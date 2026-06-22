@@ -1,11 +1,4 @@
-import express from 'express';
-import cors from 'cors';
-
-const app = express();
-const PORT = 3001;
 const API = 'https://worldcup26.ir';
-
-app.use(cors());
 
 function createCache(ttlMs) {
   const store = new Map();
@@ -21,21 +14,12 @@ function createCache(ttlMs) {
 }
 
 const gamesCache = createCache(30_000);   // 30s — matches poll interval
-const teamsCache = createCache(300_000);  // 5min — team list is static
 
 async function getGames() {
   const cached = gamesCache.get('games');
   if (cached) return cached;
   const data = await fetchJSON(`${API}/get/games`);
   gamesCache.set('games', data);
-  return data;
-}
-
-async function getTeams() {
-  const cached = teamsCache.get('teams');
-  if (cached) return cached;
-  const data = await fetchJSON(`${API}/get/teams`);
-  teamsCache.set('teams', data);
   return data;
 }
 
@@ -121,7 +105,10 @@ function transformGame(g) {
   };
 }
 
-app.get('/api/matches', async (_req, res) => {
+export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
   try {
     const data  = await getGames();
     const games = data.games ?? (Array.isArray(data) ? data : []);
@@ -130,67 +117,4 @@ app.get('/api/matches', async (_req, res) => {
     console.error('[matches]', err.message);
     res.status(500).json({ error: err.message });
   }
-});
-
-app.get('/api/standings', async (_req, res) => {
-  try {
-    const [gd, td] = await Promise.all([getGames(), getTeams()]);
-    const games = gd.games ?? (Array.isArray(gd) ? gd : []);
-    const teams = td.teams ?? (Array.isArray(td) ? td : []);
-
-    const teamById = {};
-    teams.forEach(t => { teamById[String(t.id)] = norm(t.name_en ?? t.name); });
-
-    const teamStats  = {};
-    const groupTeams = {};
-
-    games.filter(g=>(g.type??'').toLowerCase()==='group').forEach(g => {
-      const grp = g.group;
-      if (!grp) return;
-      if (!groupTeams[grp]) groupTeams[grp] = new Set();
-
-      [
-        { tid:String(g.home_team_id), name:g.home_team_name_en },
-        { tid:String(g.away_team_id), name:g.away_team_name_en },
-      ].forEach(({tid,name}) => {
-        if (!tid||tid==='0') return;
-        groupTeams[grp].add(tid);
-        if (!teamStats[tid]) {
-          teamStats[tid] = { name: teamById[tid] ?? norm(name) ?? 'Unknown', played:0, won:0, draw:0, lost:0, gf:0, ga:0 };
-        }
-      });
-
-      const fin = g.finished==='TRUE'||g.finished===true||g.finished===1;
-      if (!fin) return;
-      const hs=parseInt(g.home_score)||0, as_=parseInt(g.away_score)||0;
-      const hid=String(g.home_team_id), aid=String(g.away_team_id);
-
-      if (teamStats[hid]) {
-        teamStats[hid].played++; teamStats[hid].gf+=hs; teamStats[hid].ga+=as_;
-        if (hs>as_) teamStats[hid].won++; else if (hs===as_) teamStats[hid].draw++; else teamStats[hid].lost++;
-      }
-      if (teamStats[aid]) {
-        teamStats[aid].played++; teamStats[aid].gf+=as_; teamStats[aid].ga+=hs;
-        if (as_>hs) teamStats[aid].won++; else if (as_===hs) teamStats[aid].draw++; else teamStats[aid].lost++;
-      }
-    });
-
-    const standings = Object.entries(groupTeams).map(([grp, tidSet]) => {
-      const table = [...tidSet].map(tid => {
-        const s=teamStats[tid], pts=s.won*3+s.draw;
-        return { team:{id:parseInt(tid)||0,name:s.name,shortName:s.name,tla:'',crest:''}, playedGames:s.played, won:s.won, draw:s.draw, lost:s.lost, points:pts, goalsFor:s.gf, goalsAgainst:s.ga, goalDifference:s.gf-s.ga };
-      }).sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference||b.goalsFor-a.goalsFor);
-      table.forEach((t,i)=>{t.position=i+1;});
-      return { stage:'GROUP_STAGE', type:'TOTAL', group:`GROUP_${grp}`, table };
-    });
-
-    res.json({ standings });
-  } catch (err) {
-    console.error('[standings]', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/api/scorers', (_req, res) => res.json({ scorers: [] }));
-
-app.listen(PORT, () => console.log(`✅ Proxy ready on http://localhost:${PORT}`));
+}
