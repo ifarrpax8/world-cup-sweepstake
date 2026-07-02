@@ -222,40 +222,50 @@ const STAGE_LABELS: Record<string, string> = {
   FINAL:          'Final',
 };
 
-function didTeamWinMatch(country: string, match: Match): boolean {
-  const isHome = matchesCountry(country, match.homeTeam.name);
-  const winner = match.score.winner;
-  if (!winner) return false;
-  return (isHome && winner === 'HOME_TEAM') || (!isHome && winner === 'AWAY_TEAM');
-}
+// What round a team advances INTO after winning a given stage.
+// (Deliberately skips THIRD_PLACE — semi-final winners go to the Final.)
+const NEXT_LABEL: Record<string, string> = {
+  LAST_32:        'Round of 16',
+  ROUND_OF_16:    'Quarter-final',
+  QUARTER_FINALS: 'Semi-final',
+  SEMI_FINALS:    'Final',
+};
 
 export function getTournamentStatus(country: string, matches: Match[]): string {
-  const knockoutFinished = matches.filter(
+  // Every knockout match this team appears in (scheduled, live, or finished).
+  const mine = matches.filter(
     m =>
-      m.status === 'FINISHED' &&
       m.stage !== 'GROUP_STAGE' &&
       (matchesCountry(country, m.homeTeam.name) || matchesCountry(country, m.awayTeam.name))
   );
 
-  if (!knockoutFinished.length) return 'Group Stage';
+  if (!mine.length) return 'Group Stage';
 
-  for (const stage of [...STAGE_ORDER].reverse()) {
-    if (stage === 'GROUP_STAGE') continue;
-    const stageMatches = knockoutFinished.filter(m => m.stage === stage);
-    if (!stageMatches.length) continue;
+  // The FURTHEST round the team appears in is the source of truth. A team that
+  // advanced on penalties appears in the NEXT round's fixture; a team that lost
+  // on penalties does not — so we never have to guess the shoot-out result.
+  const stageIdx = (m: Match) => STAGE_ORDER.indexOf(m.stage);
+  const furthest = mine.reduce((a, b) => (stageIdx(b) > stageIdx(a) ? b : a));
+  const stage = furthest.stage;
 
-    const lastMatch = stageMatches.at(-1)!;
-    const won = didTeamWinMatch(country, lastMatch);
-
-    if (stage === 'FINAL') return won ? '🏆 Champions!' : 'Runner-up';
-    if (stage === 'THIRD_PLACE') return won ? '3rd Place' : '4th Place';
-    if (!won) return `Eliminated (${STAGE_LABELS[stage] ?? stage})`;
-
-    const nextStage = STAGE_ORDER[STAGE_ORDER.indexOf(stage) + 1];
-    return STAGE_LABELS[nextStage] ?? STAGE_LABELS[stage];
+  // Their furthest match hasn't been played yet → they're alive in that round.
+  if (furthest.status !== 'FINISHED') {
+    return STAGE_LABELS[stage] ?? stage;
   }
 
-  return 'Group Stage';
+  const isHome = matchesCountry(country, furthest.homeTeam.name);
+  const winner = furthest.score.winner;
+  const clearlyWon =
+    (winner === 'HOME_TEAM' && isHome) || (winner === 'AWAY_TEAM' && !isHome);
+
+  if (stage === 'FINAL')       return clearlyWon ? '🏆 Champions!' : 'Runner-up';
+  if (stage === 'THIRD_PLACE') return clearlyWon ? '3rd Place' : '4th Place';
+
+  // Furthest match is a finished knockout tie that isn't the final:
+  //  • clear win → they advanced (next fixture not yet listed) → show next round
+  //  • loss OR level score (lost on penalties) → eliminated at this round
+  if (clearlyWon) return NEXT_LABEL[stage] ?? STAGE_LABELS[stage] ?? stage;
+  return `Eliminated (${STAGE_LABELS[stage] ?? stage})`;
 }
 
 export function stageScore(status: string): number {

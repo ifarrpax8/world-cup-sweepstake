@@ -9,11 +9,13 @@ import {
 import { Table } from './components/Table';
 import { DetailPanel } from './components/DetailPanel';
 import { Confetti } from './components/Confetti';
+import { KnockoutBracket } from './components/KnockoutBracket';
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches
   );
+  const [view, setView] = useState<'table' | 'bracket'>('table');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'points', dir: 'desc' });
   const [filterGroup, setFilterGroup]   = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -179,47 +181,65 @@ export default function App() {
       <div className="h-1 bg-gradient-to-r from-pax8-blue via-pax8-mint to-pax8-blue" />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Filters */}
-        <div className="mb-5 flex flex-wrap gap-3">
-          <input
-            type="text"
-            placeholder="Search participant…"
-            value={filterPerson}
-            onChange={e => setFilterPerson(e.target.value)}
-            className="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-pax8-blue/50 dark:text-white"
-          />
-          <select
-            value={filterGroup}
-            onChange={e => setFilterGroup(e.target.value)}
-            className="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-pax8-blue/50 dark:text-white"
+        {/* View toggle */}
+        <div className="mb-5 inline-flex rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 shadow-sm">
+          <button
+            onClick={() => setView('table')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${view === 'table' ? 'bg-pax8-blue text-white shadow-sm' : 'text-pax8-muted hover:text-pax8-navy dark:hover:text-white'}`}
           >
-            <option value="">All Groups</option>
-            {availableGroups.map(g => <option key={g} value={g}>{g}</option>)}
-          </select>
-          <select
-            value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
-            className="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-pax8-blue/50 dark:text-white"
+            Sweepstake Table
+          </button>
+          <button
+            onClick={() => setView('bracket')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${view === 'bracket' ? 'bg-pax8-blue text-white shadow-sm' : 'text-pax8-muted hover:text-pax8-navy dark:hover:text-white'}`}
           >
-            <option value="">All Statuses</option>
-            <option value="Group Stage">Group Stage</option>
-            <option value="Round of 32">Round of 32</option>
-            <option value="Round of 16">Round of 16</option>
-            <option value="Quarter-final">Quarter-finals</option>
-            <option value="Semi-final">Semi-finals</option>
-            <option value="Final">Final</option>
-            <option value="Eliminated">Eliminated</option>
-            <option value="Champions">🏆 Champions</option>
-          </select>
-          {(filterGroup || filterStatus || filterPerson) && (
-            <button
-              onClick={() => { setFilterGroup(''); setFilterStatus(''); setFilterPerson(''); }}
-              className="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 text-pax8-muted hover:text-pax8-navy dark:hover:text-white transition-colors"
-            >
-              Clear filters
-            </button>
-          )}
+            Knockout Bracket
+          </button>
         </div>
+
+        {/* Filters (table view only) */}
+        {view === 'table' && (
+          <div className="mb-5 flex flex-wrap gap-3">
+            <input
+              type="text"
+              placeholder="Search participant…"
+              value={filterPerson}
+              onChange={e => setFilterPerson(e.target.value)}
+              className="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-pax8-blue/50 dark:text-white"
+            />
+            <select
+              value={filterGroup}
+              onChange={e => setFilterGroup(e.target.value)}
+              className="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-pax8-blue/50 dark:text-white"
+            >
+              <option value="">All Groups</option>
+              {availableGroups.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              className="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-pax8-blue/50 dark:text-white"
+            >
+              <option value="">All Statuses</option>
+              <option value="Group Stage">Group Stage</option>
+              <option value="Round of 32">Round of 32</option>
+              <option value="Round of 16">Round of 16</option>
+              <option value="Quarter-final">Quarter-finals</option>
+              <option value="Semi-final">Semi-finals</option>
+              <option value="Final">Final</option>
+              <option value="Eliminated">Eliminated</option>
+              <option value="Champions">🏆 Champions</option>
+            </select>
+            {(filterGroup || filterStatus || filterPerson) && (
+              <button
+                onClick={() => { setFilterGroup(''); setFilterStatus(''); setFilterPerson(''); }}
+                className="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 text-pax8-muted hover:text-pax8-navy dark:hover:text-white transition-colors"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Staleness warning */}
         {isStale && !error && (
@@ -244,7 +264,7 @@ export default function App() {
             </div>
             <p className="text-pax8-muted text-sm font-medium">Loading live World Cup data…</p>
           </div>
-        ) : (
+        ) : view === 'table' ? (
           <div className="animate-fade-in">
             <Table
               rows={sortedRows}
@@ -257,6 +277,10 @@ export default function App() {
             <p className="mt-3 text-xs text-pax8-muted text-right">
               Showing {sortedRows.length} of {allRows.length} participants
             </p>
+          </div>
+        ) : (
+          <div className="animate-fade-in">
+            <KnockoutBracket matches={matches} sweepstake={SWEEPSTAKE} />
           </div>
         )}
       </main>

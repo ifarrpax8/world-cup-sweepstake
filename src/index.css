@@ -51,3 +51,68 @@
 ::-webkit-scrollbar-track { @apply bg-transparent; }
 ::-webkit-scrollbar-thumb { @apply bg-pax8-blue/30 rounded-full; }
 ::-webkit-scrollbar-thumb:hover { @apply bg-pax8-blue/60; }
+
+/* ============ Knockout bracket with connector lines ============ */
+.bracket {
+  display: flex;
+  align-items: stretch;
+  width: max-content;
+  /* Centre the bracket when it fits the screen; when it's wider, it still
+     scrolls sideways from the left without clipping (block overflow). */
+  margin-inline: auto;
+}
+.b-round {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  min-width: 17rem;
+}
+.b-match {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1.5rem;
+}
+.b-card { width: 14rem; }
+
+/* Connector colours (light / dark) */
+.b-round:not(:last-child) .b-match::after,
+.b-round:not(:first-child) .b-match::before,
+.b-vert {
+  background-color: #cbd5e1;   /* slate-300 */
+}
+.dark .b-round:not(:last-child) .b-match::after,
+.dark .b-round:not(:first-child) .b-match::before,
+.dark .b-vert {
+  background-color: #334155;   /* slate-700 */
+}
+
+/* Horizontal stub out the right of each feeder match */
+.b-round:not(:last-child) .b-match::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 1.5rem;
+  height: 2px;
+}
+
+/* Horizontal stub into the left of each downstream match */
+.b-round:not(:first-child) .b-match::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1.5rem;
+  height: 2px;
+}
+
+/* Vertical line joining each pair of feeder matches (rendered on the top one) */
+.b-vert {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 2px;
+  height: 100%;
+}

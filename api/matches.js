@@ -13,7 +13,8 @@ function createCache(ttlMs) {
   };
 }
 
-const gamesCache = createCache(30_000);   // 30s — matches poll interval
+const gamesCache   = createCache(30_000);     // 30s — matches poll interval
+const offsetsCache = createCache(3_600_000);  // 1hr — stadium list is static
 
 async function getGames() {
   const cached = gamesCache.get('games');
@@ -21,6 +22,14 @@ async function getGames() {
   const data = await fetchWithRetry(`${API}/get/games`);
   gamesCache.set('games', data);
   return data;
+}
+
+async function getVenueOffsets() {
+  const cached = offsetsCache.get('offsets');
+  if (cached) return cached;
+  const offsets = await buildVenueOffsets();
+  offsetsCache.set('offsets', offsets);
+  return offsets;
 }
 
 const NAME_MAP = {
@@ -106,22 +115,53 @@ function mapStage(type) {
   return map[(type??'').toLowerCase()] ?? 'GROUP_STAGE';
 }
 
-function parseDate(d) {
-  if (!d) return new Date().toISOString();
+// The API's local_date is the VENUE'S local kickoff time. Host cities span
+// several timezones, so we convert each match using its stadium's offset.
+// Values = hours to ADD to venue-local time to get UTC, for the tournament
+// window (Jun–Jul 2026: US/Canada on daylight time, Mexico on standard time).
+function cityOffset(city = '', country = '') {
+  const c = `${city} ${country}`.toLowerCase();
+  if (/vancouver|seattle|san francisco|santa clara|los angeles|inglewood/.test(c)) return 7; // Pacific (PDT)
+  if (/dallas|arlington|houston|kansas/.test(c)) return 5;                                    // Central US (CDT)
+  if (/mexico|guadalajara|monterrey/.test(c)) return 6;                                       // Mexico (no DST)
+  return 4;                                                                                    // Eastern (EDT) — default
+}
+
+function toUtcISO(localDate, offsetHours) {
+  if (!localDate) return new Date().toISOString();
   try {
-    const [dp, tp='00:00'] = d.split(' ');
-    const [mo,dy,yr] = dp.split('/');
-    const [h,m] = tp.split(':');
-    return new Date(Date.UTC(+yr,+mo-1,+dy,+h,+m)).toISOString();
+    const [dp, tp = '00:00'] = localDate.split(' ');
+    const [mo, dy, yr] = dp.split('/').map(Number);
+    const [h, mi] = tp.split(':').map(Number);
+    const ms = Date.UTC(yr, mo - 1, dy, h, mi) + offsetHours * 3600 * 1000;
+    return new Date(ms).toISOString();
   } catch { return new Date().toISOString(); }
 }
 
-function transformGame(g) {
+// Fetch the stadium list and build stadium_id → UTC offset.
+async function buildVenueOffsets() {
+  try {
+    const data = await fetchWithRetry(`${API}/get/stadiums`);
+    const stadiums = data.stadiums ?? (Array.isArray(data) ? data : []);
+    const map = {};
+    stadiums.forEach(s => { map[String(s.id)] = cityOffset(s.city_en, s.country_en); });
+    return map;
+  } catch {
+    return {}; // fall back to Eastern for every match if the list is unavailable
+  }
+}
+
+function transformGame(g, offsets = {}) {
   const hs=parseInt(g.home_score)||0, as_=parseInt(g.away_score)||0;
   const fin = g.finished==='TRUE'||g.finished===true||g.finished===1;
+  const status = mapStatus(g.time_elapsed, g.finished);
+  // Show a scoreline for any match that has kicked off (live or finished),
+  // not just finished ones — so live scores appear in the table and bracket.
+  const started = status === 'FINISHED' || status === 'IN_PLAY' || status === 'PAUSED';
+  const offset = offsets[String(g.stadium_id)] ?? 4;
   return {
     id: parseInt(g.id),
-    status: mapStatus(g.time_elapsed, g.finished),
+    status,
     stage:  mapStage(g.type),
     group:  g.type==='group' ? `GROUP_${g.group}` : null,
     homeTeam: { id:parseInt(g.home_team_id)||0, name:norm(g.home_team_name_en||g.home_team_label||'TBD'), shortName:norm(g.home_team_name_en||'TBD'), tla:'', crest:'' },
@@ -129,13 +169,13 @@ function transformGame(g) {
     score: {
       winner: fin?(hs>as_?'HOME_TEAM':as_>hs?'AWAY_TEAM':'DRAW'):null,
       duration:'REGULAR',
-      fullTime:{ home:fin?hs:null, away:fin?as_:null },
+      fullTime:{ home:started?hs:null, away:started?as_:null },
       halfTime:{ home:null, away:null },
       regularTime:null, extraTime:null, penalties:null,
     },
     homeScorers: parseScorers(g.home_scorers),
     awayScorers: parseScorers(g.away_scorers),
-    utcDate: parseDate(g.local_date),
+    utcDate: toUtcISO(g.local_date, offset),
     matchday: parseInt(g.matchday)||null,
   };
 }
@@ -145,9 +185,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   try {
-    const data  = await getGames();
+    const [data, offsets] = await Promise.all([getGames(), getVenueOffsets()]);
     const games = data.games ?? (Array.isArray(data) ? data : []);
-    res.json({ matches: games.map(transformGame) });
+    res.json({ matches: games.map(g => transformGame(g, offsets)) });
   } catch (err) {
     console.error('[matches]', err.message);
     res.status(500).json({ error: err.message });
