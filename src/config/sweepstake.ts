@@ -21,7 +21,7 @@ export const SWEEPSTAKE: SweepstakeEntry[] = [
   { person: 'Cesar', country: 'South Korea' },
   { person: 'Charlotte', country: 'France' },
   { person: 'Chris K', country: 'Paraguay' },
-  { person: 'Chris Sharp', country: 'England' },
+  { person: 'Nick Sharp', country: 'England' },
   { person: 'Chloe', country: 'Scotland' },
   { person: 'Citra', country: 'Qatar' },
   { person: 'Darcy', country: 'Germany' },
