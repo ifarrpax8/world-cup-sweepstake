@@ -115,6 +115,13 @@ function mapStage(type) {
   return map[(type??'').toLowerCase()] ?? 'GROUP_STAGE';
 }
 
+// Parse a feeder match number from a label like "Winner Match 83" → 83.
+function srcId(label) {
+  if (!label) return null;
+  const m = /(\d+)/.exec(label);
+  return m ? parseInt(m[1]) : null;
+}
+
 // The API's local_date is the VENUE'S local kickoff time. Host cities span
 // several timezones, so we convert each match using its stadium's offset.
 // Values = hours to ADD to venue-local time to get UTC, for the tournament
@@ -175,6 +182,8 @@ function transformGame(g, offsets = {}) {
     },
     homeScorers: parseScorers(g.home_scorers),
     awayScorers: parseScorers(g.away_scorers),
+    homeSrcId: g.home_team_name_en ? null : srcId(g.home_team_label),
+    awaySrcId: g.away_team_name_en ? null : srcId(g.away_team_label),
     utcDate: toUtcISO(g.local_date, offset),
     matchday: parseInt(g.matchday)||null,
   };

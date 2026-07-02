@@ -67,6 +67,10 @@ export interface Match {
   };
   homeScorers: Scorer[];
   awayScorers: Scorer[];
+  // Feeder match numbers parsed from "Winner Match N" labels (null once the
+  // slot is filled with a real team). Used to reconstruct the bracket tree.
+  homeSrcId?: number | null;
+  awaySrcId?: number | null;
   utcDate: string;
   matchday: number | null;
 }

@@ -16,17 +16,80 @@ const STAGES: { key: string; label: string }[] = [
   { key: 'FINAL',          label: 'Final' },
 ];
 
+const PREV_STAGE: Record<string, string> = {
+  ROUND_OF_16:    'LAST_32',
+  QUARTER_FINALS: 'ROUND_OF_16',
+  SEMI_FINALS:    'QUARTER_FINALS',
+  FINAL:          'SEMI_FINALS',
+};
+
+// Reconstruct the true bracket order by walking the tree from the FINAL back
+// through each match's two feeders. A feeder is found either from a
+// "Winner Match N" label (unplayed slot) or by locating which earlier-round
+// match the resolved team came from (played slot). Depth-first, home-before-away,
+// yields each round's matches in correct top-to-bottom bracket order — which the
+// connector lines rely on. Match-id order is NOT used: this data source doesn't
+// number matches in bracket-adjacent order.
+function buildBracketOrder(all: Match[]): Record<string, Match[]> {
+  const byId = new Map(all.map(m => [m.id, m]));
+  const ordered: Record<string, Match[]> = {
+    LAST_32: [], ROUND_OF_16: [], QUARTER_FINALS: [], SEMI_FINALS: [], FINAL: [],
+  };
+
+  const feederId = (match: Match, side: 'home' | 'away'): number | null => {
+    const labelled = side === 'home' ? match.homeSrcId : match.awaySrcId;
+    if (labelled != null && byId.has(labelled)) return labelled;
+
+    // Resolved slot → find the previous-round match this team played in.
+    const teamName = side === 'home' ? match.homeTeam.name : match.awayTeam.name;
+    const prev = PREV_STAGE[match.stage];
+    if (!prev || teamName === 'TBD') return null;
+    const feeder = all.find(
+      m =>
+        m.stage === prev &&
+        (matchesCountry(teamName, m.homeTeam.name) || matchesCountry(teamName, m.awayTeam.name))
+    );
+    return feeder ? feeder.id : null;
+  };
+
+  const visited = new Set<number>();
+  const walk = (match: Match | null | undefined) => {
+    if (!match || visited.has(match.id)) return;
+    visited.add(match.id);
+    if (ordered[match.stage]) ordered[match.stage].push(match);
+    if (match.stage === 'LAST_32') return;
+    const h = feederId(match, 'home');
+    const a = feederId(match, 'away');
+    walk(h != null ? byId.get(h) : null);
+    walk(a != null ? byId.get(a) : null);
+  };
+
+  walk(all.find(m => m.stage === 'FINAL'));
+
+  // Safety net: append any matches the walk didn't reach (unresolved links),
+  // in id order, so nothing silently disappears.
+  for (const stage of Object.keys(ordered)) {
+    const present = new Set(ordered[stage].map(m => m.id));
+    all
+      .filter(m => m.stage === stage && !present.has(m.id))
+      .sort((x, y) => x.id - y.id)
+      .forEach(m => ordered[stage].push(m));
+  }
+
+  return ordered;
+}
+
 export function KnockoutBracket({ matches, sweepstake }: Props) {
   function personFor(teamName: string): string | null {
     const e = sweepstake.find(s => matchesCountry(s.country, teamName));
     return e ? e.person : null;
   }
 
+  const orderedByStage = buildBracketOrder(matches);
+
   const columns = STAGES.map(st => ({
     ...st,
-    games: matches
-      .filter(m => m.stage === st.key)
-      .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime()),
+    games: orderedByStage[st.key] ?? [],
   })).filter(col => col.games.length > 0);
 
   const thirdPlace = matches.find(m => m.stage === 'THIRD_PLACE') ?? null;
